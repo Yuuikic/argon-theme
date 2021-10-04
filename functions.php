@@ -344,10 +344,13 @@ function set_user_token_cookie(){
 		$_COOKIE["argon_user_token"] = $newToken;
 	}
 }
-set_user_token_cookie();
-if (!session_id()){
-	session_start();
+function session_init(){
+	set_user_token_cookie();
+	if (!session_id()){
+		session_start();
+	}
 }
+add_action('init', 'session_init');
 //页面 Description Meta
 function get_seo_description(){
 	global $post;
@@ -520,6 +523,9 @@ function have_catalog(){
 	}
 	if (post_password_required()){
 		return false;
+	}
+	if (is_page() && is_page_template('timeline.php')){
+		return true;
 	}
 	$content = get_post(get_the_ID()) -> post_content;
 	if (preg_match('/<h[1-6](.*?)>/',$content)){
@@ -995,6 +1001,10 @@ function argon_comment_shuoshuo_preview_format($comment, $args, $depth){
 	</li>
 	<li>
 <?php }
+function comment_author_link_filter($html){
+	return str_replace('href=', 'target="_blank" href=', $html);
+}
+add_filter('get_comment_author_link', 'comment_author_link_filter');
 //评论验证码生成 & 验证
 function get_comment_captcha_seed($refresh = false){
 	if (isset($_SESSION['captchaSeed']) && !$refresh){
@@ -2631,6 +2641,7 @@ function themeoptions_page(){
 ?>
 	<script src="<?php bloginfo('template_url'); ?>/assets/vendor/jquery/jquery.min.js"></script>
 	<script src="<?php bloginfo('template_url'); ?>/assets/vendor/headindex/headindex.js"></script>
+	<script>!function(n){"function"==typeof define&&define.amd?define(["jquery"],function(e){return n(e)}):"object"==typeof module&&"object"==typeof module.exports?module.exports=n(require("jquery")):n(jQuery)}(function(n){function e(n){var e=7.5625,t=2.75;return n<1/t?e*n*n:n<2/t?e*(n-=1.5/t)*n+.75:n<2.5/t?e*(n-=2.25/t)*n+.9375:e*(n-=2.625/t)*n+.984375}void 0!==n.easing&&(n.easing.jswing=n.easing.swing);var t=Math.pow,u=Math.sqrt,r=Math.sin,i=Math.cos,a=Math.PI,o=1.70158,c=1.525*o,s=2*a/3,f=2*a/4.5;return n.extend(n.easing,{def:"easeOutQuad",swing:function(e){return n.easing[n.easing.def](e)},easeInQuad:function(n){return n*n},easeOutQuad:function(n){return 1-(1-n)*(1-n)},easeInOutQuad:function(n){return n<.5?2*n*n:1-t(-2*n+2,2)/2},easeInCubic:function(n){return n*n*n},easeOutCubic:function(n){return 1-t(1-n,3)},easeInOutCubic:function(n){return n<.5?4*n*n*n:1-t(-2*n+2,3)/2},easeInQuart:function(n){return n*n*n*n},easeOutQuart:function(n){return 1-t(1-n,4)},easeInOutQuart:function(n){return n<.5?8*n*n*n*n:1-t(-2*n+2,4)/2},easeInQuint:function(n){return n*n*n*n*n},easeOutQuint:function(n){return 1-t(1-n,5)},easeInOutQuint:function(n){return n<.5?16*n*n*n*n*n:1-t(-2*n+2,5)/2},easeInSine:function(n){return 1-i(n*a/2)},easeOutSine:function(n){return r(n*a/2)},easeInOutSine:function(n){return-(i(a*n)-1)/2},easeInExpo:function(n){return 0===n?0:t(2,10*n-10)},easeOutExpo:function(n){return 1===n?1:1-t(2,-10*n)},easeInOutExpo:function(n){return 0===n?0:1===n?1:n<.5?t(2,20*n-10)/2:(2-t(2,-20*n+10))/2},easeInCirc:function(n){return 1-u(1-t(n,2))},easeOutCirc:function(n){return u(1-t(n-1,2))},easeInOutCirc:function(n){return n<.5?(1-u(1-t(2*n,2)))/2:(u(1-t(-2*n+2,2))+1)/2},easeInElastic:function(n){return 0===n?0:1===n?1:-t(2,10*n-10)*r((10*n-10.75)*s)},easeOutElastic:function(n){return 0===n?0:1===n?1:t(2,-10*n)*r((10*n-.75)*s)+1},easeInOutElastic:function(n){return 0===n?0:1===n?1:n<.5?-t(2,20*n-10)*r((20*n-11.125)*f)/2:t(2,-20*n+10)*r((20*n-11.125)*f)/2+1},easeInBack:function(n){return 2.70158*n*n*n-o*n*n},easeOutBack:function(n){return 1+2.70158*t(n-1,3)+o*t(n-1,2)},easeInOutBack:function(n){return n<.5?t(2*n,2)*(7.189819*n-c)/2:(t(2*n-2,2)*((c+1)*(2*n-2)+c)+2)/2},easeInBounce:function(n){return 1-e(1-n)},easeOutBounce:e,easeInOutBounce:function(n){return n<.5?(1-e(1-2*n))/2:(1+e(2*n-1))/2}}),n});</script>
 	<script src="<?php bloginfo('template_url'); ?>/assets/vendor/dragula/dragula.min.js"></script>
 	<div>
 		<style type="text/css">
@@ -3480,6 +3491,33 @@ function themeoptions_page(){
 							</br>
 							<textarea type="text" name="argon_outdated_info_tip_content" rows="3" cols="100" style="margin-top: 15px;"><?php echo get_option('argon_outdated_info_tip_content') == '' ? __('本文最后更新于 %date_delta% 天前，其中的信息可能已经有所发展或是发生改变。', 'argpm') : get_option('argon_outdated_info_tip_content'); ?></textarea>
 							<p class="description"><?php _e('天数为 -1 表示永不提示。', 'argon');?></br><code>%date_delta%</code> <?php _e('表示文章发布/修改时间与当前时间的差距，', 'argon');?><code>%post_date_delta%</code> <?php _e('表示文章发布时间与当前时间的差距，', 'argon');?><code>%modify_date_delta%</code> <?php _e('表示文章修改时间与当前时间的差距（单位: 天）。', 'argon');?></p>
+						</td>
+					</tr>
+					<tr><th class="subtitle"><h2><?php _e('归档页面', 'argon');?></h2></th></tr>
+					<tr>
+						<th><label><?php _e('介绍', 'argon');?></label></th>
+						<td>
+							<p class="description"><?php _e('新建一个页面，并将其模板设为 "归档时间轴"，即可创建一个归档页面。归档页面会按照时间顺序在时间轴上列出博客的所有文章。', 'argon');?></p>
+						</td>
+					</tr>
+					<tr><th class="subtitle"><h3><?php _e('外观', 'argon');?></h3></th></tr>
+					<tr>
+						<th><label><?php _e('在时间轴上显示月份', 'argon');?></label></th>
+						<td>
+							<select name="argon_archives_timeline_show_month">
+								<?php $argon_archives_timeline_show_month = get_option('argon_archives_timeline_show_month'); ?>
+								<option value="true" <?php if ($argon_archives_timeline_show_month=='true'){echo 'selected';} ?>><?php _e('显示', 'argon');?></option>
+								<option value="false" <?php if ($argon_archives_timeline_show_month=='false'){echo 'selected';} ?>><?php _e('不显示', 'argon');?></option>
+							</select>
+							<p class="description"><?php _e('关闭后，时间轴只会按年份分节', 'argon');?></p>
+						</td>
+					</tr>
+					<tr><th class="subtitle"><h3><?php _e('配置', 'argon');?></h3></th></tr>
+					<tr>
+						<th><label><?php _e('归档页面链接', 'argon');?></label></th>
+						<td>
+							<input type="text" class="regular-text" name="argon_archives_timeline_url" value="<?php echo get_option('argon_archives_timeline_url'); ?>"/>
+							<p class="description"><?php _e('归档页面的 URL。点击左侧栏 "博客概览" 中的 "博文总数" 一栏时可跳转到该地址。', 'argon');?></p>
 						</td>
 					</tr>
 					<tr><th class="subtitle"><h2><?php _e('页脚', 'argon');?></h2></th></tr>
@@ -4552,6 +4590,8 @@ function argon_update_themeoptions(){
 		argon_update_option('argon_article_list_waterflow');
 		argon_update_option('argon_banner_size');
 		argon_update_option('argon_toolbar_blur');
+		argon_update_option('argon_archives_timeline_show_month');
+		argon_update_option('argon_archives_timeline_url');
 
 		//LazyLoad 相关
 		argon_update_option('argon_enable_lazyload');
