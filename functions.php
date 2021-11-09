@@ -12,9 +12,11 @@ add_action('after_setup_theme','theme_slug_setup');
 $GLOBALS['theme_version'] = wp_get_theme() -> Version;
 $argon_assets_path = get_option("argon_assets_path");
 if ($argon_assets_path== "jsdelivr"){
-	$GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/solstice23/argon-theme@" . wp_get_theme() -> Version;
+	$GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/yuuikic/argon-theme@" . wp_get_theme() -> Version;
 }else if ($argon_assets_path == "fastgit"){
 	$GLOBALS['assets_path'] = "https://raw.fastgit.org/solstice23/argon-theme/v" . wp_get_theme() -> Version;
+}else if ($argon_assets_path == "AHCDN"){
+	$GLOBALS['assets_path'] = "https://source.ahdark.com/wordpress/theme/argon-theme/" . wp_get_theme() -> Version;
 }else{
 	$GLOBALS['assets_path'] = get_bloginfo('template_url');
 }
@@ -350,7 +352,8 @@ function session_init(){
 		session_start();
 	}
 }
-add_action('init', 'session_init');
+session_init();
+//add_action('init', 'session_init');
 //页面 Description Meta
 function get_seo_description(){
 	global $post;
@@ -726,7 +729,7 @@ function user_can_view_comment($id){
 //过滤 RSS 中悄悄话
 function remove_rss_private_comment_title_and_author($str){
 	global $comment;
-	if (is_comment_private_mode($comment -> comment_ID)){
+	if (isset($comment -> comment_ID) && is_comment_private_mode($comment -> comment_ID)){
 		return "***";
 	}
 	return $str;
@@ -2903,6 +2906,7 @@ function themeoptions_page(){
 								<option value="default" <?php if ($argon_assets_path=='default'){echo 'selected';} ?>><?php _e('不使用', 'argon');?></option>
 								<option value="jsdelivr" <?php if ($argon_assets_path=='jsdelivr'){echo 'selected';} ?>>jsdelivr</option>
 								<option value="fastgit" <?php if ($argon_assets_path=='fastgit'){echo 'selected';} ?>>fastgit</option>
+								<option value="AHCDN" <?php if ($argon_assets_path=='AHCDN'){echo 'selected';} ?>>AHCDN</option>
 							</select>
 							<p class="description"><?php _e('选择主题资源文件的引用地址。使用 CDN 可以加速资源文件的访问并减少服务器压力。', 'argon');?></p>
 						</td>
@@ -3134,6 +3138,13 @@ function themeoptions_page(){
 						<td>
 							<input type="text" class="regular-text" name="argon_sidebar_auther_image" value="<?php echo get_option('argon_sidebar_auther_image'); ?>"/>
 							<p class="description"><?php _e('需带上 http(s) 开头', 'argon');?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label><?php _e('左侧栏作者简介', 'argon');?></label></th>
+						<td>
+							<input type="text" class="regular-text" name="argon_sidebar_author_description" value="<?php echo get_option('argon_sidebar_author_description'); ?>"/>
+							<p class="description"><?php _e('留空则不显示', 'argon');?></p>
 						</td>
 					</tr>
 					<tr><th class="subtitle"><h2><?php _e('博客公告', 'argon');?></h2></th></tr>
@@ -4499,6 +4510,7 @@ function argon_update_themeoptions(){
 		argon_update_option('argon_sidebar_banner_subtitle');
 		argon_update_option('argon_sidebar_auther_name');
 		argon_update_option('argon_sidebar_auther_image');
+		argon_update_option('argon_sidebar_author_description');
 		argon_update_option('argon_banner_title');
 		argon_update_option('argon_banner_subtitle');
 		argon_update_option('argon_banner_background_url');
