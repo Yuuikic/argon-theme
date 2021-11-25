@@ -11,14 +11,19 @@ add_action('after_setup_theme','theme_slug_setup');
 
 $GLOBALS['theme_version'] = wp_get_theme() -> Version;
 $argon_assets_path = get_option("argon_assets_path");
-if ($argon_assets_path== "jsdelivr"){
-	$GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/yuuikic/argon-theme@" . wp_get_theme() -> Version;
-}else if ($argon_assets_path == "fastgit"){
-	$GLOBALS['assets_path'] = "https://raw.fastgit.org/solstice23/argon-theme/v" . wp_get_theme() -> Version;
-}else if ($argon_assets_path == "AHCDN"){
-	$GLOBALS['assets_path'] = "https://source.ahdark.com/wordpress/theme/argon-theme/" . wp_get_theme() -> Version;
-}else{
-	$GLOBALS['assets_path'] = get_bloginfo('template_url');
+switch ($argon_assets_path) {
+    case "jsdelivr":
+	    $GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/yuuikic/argon-theme@" . wp_get_theme() -> Version;
+        break;
+    case "fastgit":
+	    $GLOBALS['assets_path'] = "https://raw.fastgit.org/solstice23/argon-theme/v" . wp_get_theme() -> Version;
+        break;
+    case "AHCDN":
+    case "sourcestorage":
+	    $GLOBALS['assets_path'] = "https://source.ahdark.com/wordpress/theme/argon-theme/" . wp_get_theme() -> Version;
+        break;
+    default:
+	    $GLOBALS['assets_path'] = get_bloginfo('template_url');
 }
 
 //翻译 Hook
@@ -162,8 +167,19 @@ function argon_widgets_init() {
 			'after_title'   => '</h6>',
 		)
 	);
+	register_sidebar(
+		array(
+			'name'          => __('站点概览额外内容', 'argon'),
+			'id'            => 'leftbar-siteinfo-extra-tools',
+			'description'   => __( '站点概览额外内容', 'argon'),
+			'before_widget' => '<div id="%1$s" class="widget %2$s card bg-white border-0">',
+			'after_widget'  => '</div>',
+			'before_title'  => '<h6 class="font-weight-bold text-black">',
+			'after_title'   => '</h6>',
+		)
+	);
 }
-add_action('widgets_init','argon_widgets_init');
+add_action('widgets_init', 'argon_widgets_init');
 //注册新后台主题配色方案
 function argon_add_admin_color(){
 	wp_admin_css_color(
@@ -204,6 +220,9 @@ require_once(get_template_directory() . '/emotions.php');
 //文章特色图片
 function argon_get_first_image_of_article(){
 	global $post;
+	if (post_password_required()){
+		return false;
+	}
 	$post_content_full = apply_filters('the_content', preg_replace( '<!--more(.*?)-->', '', $post -> post_content));
 	preg_match('/<img(.*?)(src|data-original)=[\"\']((http:|https:)?\/\/(.*?))[\"\'](.*?)\/?>/', $post_content_full, $match);
 	if (isset($match[3])){
@@ -469,26 +488,39 @@ function set_post_views(){
 add_action('get_header', 'set_post_views');
 //字数和预计阅读时间
 function get_article_words($str){
+	preg_match_all('/<pre(.*?)>[\S\s]*?<code(.*?)>([\S\s]*?)<\/code>[\S\s]*?<\/pre>/im', $str, $codeSegments, PREG_PATTERN_ORDER);
+	$codeSegments = $codeSegments[3];
+	$codeTotal = 0;
+	foreach ($codeSegments as $codeSegment){
+		$codeLines = preg_split('/\r\n|\n|\r/', $codeSegment);
+		foreach ($codeLines as $line){
+			if (strlen(trim($str)) > 0){
+				$codeTotal++;
+			}
+		}
+	}
+
 	$str = preg_replace(
-		'/<code(.*?)>(.*?)<\/code>/is',
+		'/<code(.*?)>[\S\s]*?<\/code>/im',
 		'',
 		$str
 	);
 	$str = preg_replace(
-		'/<pre(.*?)>(.*?)<\/pre>/is',
+		'/<pre(.*?)>[\S\s]*?<\/pre>/im',
 		'',
 		$str
 	);
 	$str = preg_replace(
-		'/<style(.*?)>(.*?)<\/style>/is',
+		'/<style(.*?)>[\S\s]*?<\/style>/im',
 		'',
 		$str
 	);
 	$str = preg_replace(
-		'/<script(.*?)>(.*?)<\/script>/is',
+		'/<script(.*?)>[\S\s]*?<\/script>/im',
 		'',
 		$str
 	);
+	$str =  preg_replace('/<[^>]+?>/', ' ', $str);
 	$str = html_entity_decode(strip_tags($str));
 	preg_match_all('/[\x{4e00}-\x{9fa5}]/u' , $str , $cnRes);
 	$cnTotal = count($cnRes[0]);
@@ -497,17 +529,19 @@ function get_article_words($str){
 	$enTotal = count($enRes[0]);
 	return array(
 		'cn' => $cnTotal,
-		'en' => $enTotal
+		'en' => $enTotal,
+		'code' => $codeTotal,
 	);
 }
 function get_article_words_total($str){
 	$res = get_article_words($str);
-	return $res['cn'] + $res['en'];
+	return $res['cn'] + $res['en'] + $res['code'];
 }
 function get_reading_time($len){
 	$speedcn = get_option('argon_reading_speed', 300);
 	$speeden = get_option('argon_reading_speed_en', 160);
-	$reading_time = $len['cn'] / $speedcn + $len['en'] / $speeden;
+	$speedcode = get_option('argon_reading_speed_code', 20);
+	$reading_time = $len['cn'] / $speedcn + $len['en'] / $speeden + $len['code'] / $speedcode;
 	if ($reading_time < 0.3){
 		return __("几秒读完", 'argon');
 	}
@@ -600,6 +634,27 @@ function get_article_meta($type){
 				</div>';
 		return $res;
 	}
+}
+//获取文章字数统计和预计阅读时间
+function get_article_reading_time_meta($post_content_full){
+	$words = get_article_words($post_content_full);
+	$res = '</br><div class="post-meta-detail post-meta-detail-words">
+		<i class="fa fa-file-word-o" aria-hidden="true"></i>';
+	if ($words['code'] > 0){
+		$res .= '<span title="' . sprintf(__( '包含 %d 行代码', 'argon'), $words['code']) . '">';
+	}else{
+		$res .= '<span>';
+	}
+	$res .= ' ' . get_article_words_total($post_content_full) . " " . __("字", 'argon');
+	$res .= '</span>
+		</div>
+		<div class="post-meta-devide">|</div>
+		<div class="post-meta-detail post-meta-detail-words">
+			<i class="fa fa-hourglass-end" aria-hidden="true"></i>
+			' . get_reading_time(get_article_words($post_content_full)) . '
+		</div>
+	';
+	return $res;
 }
 //当前文章是否隐藏 阅读时间 Meta
 function is_readingtime_meta_hidden(){
@@ -877,7 +932,7 @@ function set_comment_upvotes($id){
 	return $upvotes;
 }
 function is_comment_upvoted($id){
-	$upvotedList = isset($_COOKIE['argon_comment_upvoted']) ? $_COOKIE['argon_comment_upvoted'] : '';
+	$upvotedList = $_COOKIE['argon_comment_upvoted'] ?? '';
 	if (in_array($id, explode(',', $upvotedList))){
 		return true;
 	}
@@ -897,7 +952,7 @@ function upvote_comment(){
 			'total_upvote' => 0
 		)));
 	}
-	$upvotedList = isset($_COOKIE['argon_comment_upvoted']) ? $_COOKIE['argon_comment_upvoted'] : '';
+	$upvotedList = $_COOKIE['argon_comment_upvoted'] ?? '';
 	if (in_array($ID, explode(',', $upvotedList))){
 		exit(json_encode(array(
 			'status' => 'failed',
@@ -1604,7 +1659,7 @@ function the_content_filter($content){
 add_filter('the_content' , 'the_content_filter',20);
 //使用 CDN 加速 gravatar
 function gravatar_cdn($url){
-	$cdn = get_option('argon_gravatar_cdn', 'gravatar.loli.net/avatar/');
+	$cdn = get_option('argon_gravatar_cdn', 'gravatar.pho.ink/avatar/');
 	$cdn = str_replace("http://", "", $cdn);
 	$cdn = str_replace("https://", "", $cdn);
 	if (substr($cdn, -1) != '/'){
@@ -1651,7 +1706,7 @@ function set_shuoshuo_upvotes($ID){
 function upvote_shuoshuo(){
 	header('Content-Type:application/json; charset=utf-8');
 	$ID = $_POST["shuoshuo_id"];
-	$upvotedList = isset($_COOKIE['argon_shuoshuo_upvoted']) ? $_COOKIE['argon_shuoshuo_upvoted'] : '';
+	$upvotedList = $_COOKIE['argon_shuoshuo_upvoted'] ?? '';
 	if (in_array($ID, explode(',', $upvotedList))){
 		exit(json_encode(array(
 			'status' => 'failed',
@@ -1994,11 +2049,8 @@ function shortcode_br($attr,$content=""){
 add_shortcode('label','shortcode_label');
 function shortcode_label($attr,$content=""){
 	$out = "<span class='badge";
-	$color = isset($attr['color']) ? $attr['color'] : 'indigo';
+	$color = $attr['color'] ?? 'indigo';
 	switch ($color){
-		case 'indigo':
-			$out .= " badge-primary";
-			break;
 		case 'green':
 			$out .= " badge-success";
 			break;
@@ -2011,11 +2063,12 @@ function shortcode_label($attr,$content=""){
 		case 'blue':
 			$out .= " badge-info";
 			break;
+		case 'indigo':
 		default:
 			$out .= " badge-primary";
 			break;
 	}
-	$shape = isset($attr['shape']) ? $attr['shape'] : 'square';
+	$shape = $attr['shape'] ?? 'square';
 	if ($shape=="round"){
 		$out .= " badge-pill";
 	}
@@ -2028,10 +2081,10 @@ function shortcode_progressbar($attr,$content=""){
 	if ($content != ""){
 		$out .= "<div class='progress-label'><span>" . $content . "</span></div>";
 	}
-	$progress = isset($attr['progress']) ? $attr['progress'] : 100;
+	$progress = $attr['progress'] ?? 100;
 	$out .= "<div class='progress-percentage'><span>" . $progress . "%</span></div>";
 	$out .= "</div><div class='progress'><div class='progress-bar";
-	$color = isset($attr['color']) ? $attr['color'] : 'indigo';
+	$color = $attr['color'] ?? 'indigo';
 	switch ($color){
 		case 'indigo':
 			$out .= " bg-primary";
@@ -2057,7 +2110,7 @@ function shortcode_progressbar($attr,$content=""){
 }
 add_shortcode('checkbox','shortcode_checkbox');
 function shortcode_checkbox($attr,$content=""){
-	$checked = isset($attr['checked']) ? $attr['checked'] : 'false';
+	$checked = $attr['checked'] ?? 'false';
 	$inline = isset($attr['inline']) ? $attr['checked'] : 'false';
 	$out = "<div class='shortcode-todo custom-control custom-checkbox";
 	if ($inline == 'true'){
@@ -2074,7 +2127,7 @@ function shortcode_checkbox($attr,$content=""){
 add_shortcode('alert','shortcode_alert');
 function shortcode_alert($attr,$content=""){
 	$out = "<div class='alert";
-	$color = isset($attr['color']) ? $attr['color'] : 'indigo';
+	$color = $attr['color'] ?? 'indigo';
 	switch ($color){
 		case 'indigo':
 			$out .= " alert-primary";
@@ -2112,7 +2165,7 @@ function shortcode_alert($attr,$content=""){
 add_shortcode('admonition','shortcode_admonition');
 function shortcode_admonition($attr,$content=""){
 	$out = "<div class='admonition shadow-sm";
-	$color = isset($attr['color']) ? $attr['color'] : 'indigo';
+	$color = $attr['color'] ?? 'indigo';
 	switch ($color){
 		case 'indigo':
 			$out .= " admonition-primary";
@@ -2156,11 +2209,11 @@ function shortcode_admonition($attr,$content=""){
 add_shortcode('collapse','shortcode_collapse_block');
 add_shortcode('fold','shortcode_collapse_block');
 function shortcode_collapse_block($attr,$content=""){
-	$collapsed = isset($attr['collapsed']) ? $attr['collapsed'] : 'true';
-	$show_border_left = isset($attr['showleftborder']) ? $attr['showleftborder'] : 'false';
+	$collapsed = $attr['collapsed'] ?? 'true';
+	$show_border_left = $attr['showleftborder'] ?? 'false';
 	$out = "<div " ;
 	$out .= " class='collapse-block shadow-sm";
-	$color = isset($attr['color']) ? $attr['color'] : 'none';
+	$color = $attr['color'] ?? 'none';
 	switch ($color){
 		case 'indigo':
 			$out .= " collapse-block-primary";
@@ -2184,8 +2237,6 @@ function shortcode_collapse_block($attr,$content=""){
 			$out .= " collapse-block-grey";
 			break;
 		case 'none':
-			$out .= " collapse-block-transparent";
-			break;
 		default:
 			$out .= " collapse-block-transparent";
 			break;
@@ -2214,13 +2265,13 @@ function shortcode_collapse_block($attr,$content=""){
 }
 add_shortcode('friendlinks','shortcode_friend_link');
 function shortcode_friend_link($attr,$content=""){
-	$sort = isset($attr['sort']) ? $attr['sort'] : 'name';
-	$order = isset($attr['order']) ? $attr['order'] : 'ASC';
+	$sort = $attr['sort'] ?? 'name';
+	$order = $attr['order'] ?? 'ASC';
 	$friendlinks = get_bookmarks( array(
 		'orderby' => $sort ,
 		'order'   => $order
 	));
-	$style = isset($attr['style']) ? $attr['style'] : '1';
+	$style = $attr['style'] ?? '1';
 	switch ($style) {
 		case '1':
 			$class = "friend-links-style1";
@@ -2275,7 +2326,7 @@ function shortcode_friend_link_simple($attr,$content=""){
 	$content = trim(strip_tags($content));
 	$entries = explode("\n" , $content);
 
-	$shuffle = isset($attr['shuffle']) ? $attr['shuffle'] : 'false';
+	$shuffle = $attr['shuffle'] ?? 'false';
 	if ($shuffle == "true"){
 		mt_srand();
 		$group_start = 0;
@@ -2390,8 +2441,8 @@ add_shortcode('hidden','shortcode_hidden');
 add_shortcode('spoiler','shortcode_hidden');
 function shortcode_hidden($attr,$content=""){
 	$out = "<span class='argon-hidden-text";
-	$tip = isset($attr['tip']) ? $attr['tip'] : '';
-	$type = isset($attr['type']) ? $attr['type'] : 'blur';
+	$tip = $attr['tip'] ?? '';
+	$type = $attr['type'] ?? 'blur';
 	if ($type == "background"){
 		$out .= " argon-hidden-text-background";
 	}else{
@@ -2407,10 +2458,10 @@ function shortcode_hidden($attr,$content=""){
 add_shortcode('github','shortcode_github');
 function shortcode_github($attr,$content=""){
 	$github_info_card_id = mt_rand(1000000000 , 9999999999);
-	$author = isset($attr['author']) ? $attr['author'] : '';
-	$project = isset($attr['project']) ? $attr['project'] : '';
-	$getdata = isset($attr['getdata']) ? $attr['getdata'] : 'frontend';
-	$size = isset($attr['size']) ? $attr['size'] : 'full';
+	$author = $attr['author'] ?? '';
+	$project = $attr['project'] ?? '';
+	$getdata = $attr['getdata'] ?? 'frontend';
+	$size = $attr['size'] ?? 'full';
 
 	$description = "";
 	$stars = "";
@@ -2476,11 +2527,11 @@ function shortcode_github($attr,$content=""){
 }
 add_shortcode('video','shortcode_video');
 function shortcode_video($attr,$content=""){
-	$url = isset($attr['mp4']) ? $attr['mp4'] : '';
-	$url = isset($attr['url']) ? $attr['url'] : $url;
-	$width = isset($attr['width']) ? $attr['width'] : '';
-	$height = isset($attr['height']) ? $attr['height'] : '';
-	$autoplay = isset($attr['autoplay']) ? $attr['autoplay'] : 'false';
+	$url = $attr['mp4'] ?? '';
+	$url = $attr['url'] ?? $url;
+	$width = $attr['width'] ?? '';
+	$height = $attr['height'] ?? '';
+	$autoplay = $attr['autoplay'] ?? 'false';
 	$out = "<video";
 	if ($width != ''){
 		$out .= " width='" . $width . "'";
@@ -2502,12 +2553,12 @@ function shortcode_hide_reading_time($attr,$content=""){
 }
 add_shortcode('post_time','shortcode_post_time');
 function shortcode_post_time($attr,$content=""){
-	$format = isset($attr['format']) ? $attr['format'] : 'Y-n-d G:i:s';
+	$format = $attr['format'] ?? 'Y-n-d G:i:s';
 	return get_the_time($format);
 }
 add_shortcode('post_modified_time','shortcode_post_modified_time');
 function shortcode_post_modified_time($attr,$content=""){
-	$format = isset($attr['format']) ? $attr['format'] : 'Y-n-d G:i:s';
+	$format = $attr['format'] ?? 'Y-n-d G:i:s';
 	return get_the_modified_time($format);
 }
 add_shortcode('noshortcode','shortcode_noshortcode');
@@ -2906,7 +2957,7 @@ function themeoptions_page(){
 								<option value="default" <?php if ($argon_assets_path=='default'){echo 'selected';} ?>><?php _e('不使用', 'argon');?></option>
 								<option value="jsdelivr" <?php if ($argon_assets_path=='jsdelivr'){echo 'selected';} ?>>jsdelivr</option>
 								<option value="fastgit" <?php if ($argon_assets_path=='fastgit'){echo 'selected';} ?>>fastgit</option>
-								<option value="AHCDN" <?php if ($argon_assets_path=='AHCDN'){echo 'selected';} ?>>AHCDN</option>
+								<option value="sourcestorage" <?php if ($argon_assets_path=='sourcestorage'){echo 'selected';} ?>>Source Storage</option>
 							</select>
 							<p class="description"><?php _e('选择主题资源文件的引用地址。使用 CDN 可以加速资源文件的访问并减少服务器压力。', 'argon');?></p>
 						</td>
@@ -3310,6 +3361,13 @@ function themeoptions_page(){
 						<td>
 							<input type="number" name="argon_reading_speed_en" min="1" max="5000"  value="<?php echo (get_option('argon_reading_speed_en') == '' ? '160' : get_option('argon_reading_speed_en')); ?>"/>
 							<?php _e('单词/分钟', 'argon');?>
+						</td>
+					</tr>
+					<tr>
+						<th><label><?php _e('每分钟阅读代码行数', 'argon');?></label></th>
+						<td>
+							<input type="number" name="argon_reading_speed_code" min="1" max="5000"  value="<?php echo (get_option('argon_reading_speed_code') == '' ? '20' : get_option('argon_reading_speed_code')); ?>"/>
+							<?php _e('行/分钟', 'argon');?>
 							<p class="description"><?php _e('预计阅读时间由每分钟阅读字数计算', 'argon');?></p>
 						</td>
 					</tr>
@@ -4025,7 +4083,7 @@ window.pjaxLoaded = function(){
 						<th><label>Gravatar CDN</label></th>
 						<td>
 							<input type="text" class="regular-text" name="argon_gravatar_cdn" value="<?php echo get_option('argon_gravatar_cdn' , ''); ?>"/>
-							<p class="description"><?php _e('使用 CDN 来加速 Gravatar 在某些地区的访问，填写 CDN 地址，留空则不使用。', 'argon');?></br><?php _e('在中国速度较快的一些 CDN :', 'argon');?><code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">gravatar.loli.net/avatar/</code> , <code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">cdn.v2ex.com/gravatar/</code> , <code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">dn-qiniu-avatar.qbox.me/avatar/</code></p>
+							<p class="description"><?php _e('使用 CDN 来加速 Gravatar 在某些地区的访问，填写 CDN 地址，留空则不使用。', 'argon');?></br><?php _e('在中国速度较快的一些 CDN :', 'argon');?><code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">gravatar.pho.ink/avatar/</code> , <code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">cdn.v2ex.com/gravatar/</code> , <code onclick="$('input[name=\'argon_gravatar_cdn\']').val(this.innerText);" style="cursor: pointer;">dn-qiniu-avatar.qbox.me/avatar/</code></p>
 						</td>
 					</tr>
 					<tr>
@@ -4522,6 +4580,7 @@ function argon_update_themeoptions(){
 		argon_update_option('argon_show_readingtime');
 		argon_update_option('argon_reading_speed');
 		argon_update_option('argon_reading_speed_en');
+		argon_update_option('argon_reading_speed_code');
 		argon_update_option('argon_show_sharebtn');
 		argon_update_option('argon_enable_timezone_fix');
 		argon_update_option('argon_donate_qrcode_url');
