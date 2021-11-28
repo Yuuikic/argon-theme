@@ -1,8 +1,6 @@
 # [argon-theme](https://github.com/solstice23/argon-theme)
-在原主题的基础上，添加了额外的表情包。
+在原主题的基础上，添加了额外的表情包。啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊
 
 本repo仅作cdn用途！
+
 原repo：https://github.com/solstice23/argon-theme
-测试
-测试
-测试
