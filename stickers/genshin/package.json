@@ -1,0 +1,154 @@
+{
+  "type": "usr",
+  "name": "genshin",
+  "displayName": "原神",
+  "suffix": ".png",
+  "retinaSuffix": ".png",
+  "imgClass": "medium",
+  "container": [
+    {
+      "icon": "relax",
+      "text": "小事一桩"
+    },
+    {
+      "icon": "u",
+      "text": "唔"
+    },
+    {
+      "icon": "tangping",
+      "text": "躺平"
+    },
+    {
+      "icon": "o",
+      "text": "哦"
+    },
+    {
+      "icon": "daku",
+      "text": "大哭"
+    },
+    {
+      "icon": "helpme",
+      "text": "救救我"
+    },
+    {
+      "icon": "jingjue",
+      "text": "警觉"
+    },
+    {
+      "icon": "makasete",
+      "text": "交给我吧"
+    },
+    {
+      "icon": "hengheng",
+      "text": "哼哼"
+    },
+    {
+      "icon": "goaway",
+      "text": "给我走开"
+    },
+    {
+      "icon": "pigeon",
+      "text": "鸽子"
+    },
+    {
+      "icon": "kanpai",
+      "text": "干杯"
+    },
+	{
+      "icon": "gohan",
+      "text": "该吃饭了"
+    },
+	{
+      "icon": "chuhuoba",
+      "text": "出货吧"
+    },
+	{
+      "icon": "shock",
+      "text": "吃惊"
+    },
+	{
+      "icon": "stopit",
+      "text": "不要啊"
+    },
+	{
+      "icon": "onegai",
+      "text": "拜托"
+    },
+	{
+      "icon": "zzZZ",
+      "text": "zzZZ"
+    },
+	{
+      "icon": "goodjob",
+      "text": "good job"
+    },
+	{
+      "icon": "1mora",
+      "text": "1摩拉"
+    },
+	{
+      "icon": "OK",
+      "text": "OK"
+    },
+	{
+      "icon": "guancha",
+      "text": "暗中观察"
+    },
+	{
+      "icon": "bixin",
+      "text": "比心"
+    },
+	{
+      "icon": "shock2",
+      "text": "震撼"
+    },
+	{
+      "icon": "falldown",
+      "text": "倒"
+    },
+	{
+      "icon": "like",
+      "text": "点赞"
+    },
+	{
+      "icon": "applaud",
+      "text": "鼓掌"
+    },
+	{
+      "icon": "guaiqiao",
+      "text": "乖巧"
+    },
+	{
+      "icon": "heng",
+      "text": "得意"
+    },
+	{
+      "icon": "indifferent",
+      "text": "冷漠"
+    },
+	{
+      "icon": "tanoshimi",
+      "text": "期待"
+    },
+	{
+      "icon": "sahua",
+      "text": "撒花"
+    },
+	{
+      "icon": "oyasumi",
+      "text": "晚安"
+    },
+	{
+      "icon": "weiqu",
+      "text": "委屈"
+    },
+	{
+      "icon": "wonder",
+      "text": "疑问"
+    },
+	{
+      "icon": "idea",
+      "text": "有主意了"
+    }
+  ]
+}
