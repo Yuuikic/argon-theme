@@ -6,17 +6,17 @@ if (typeof(argonConfig.wp_path) == "undefined"){
 }
 /*Cookies 操作*/
 function setCookie(cname, cvalue, exdays) {
-	var d = new Date();
-	d.setTime(d.getTime() + (exdays*24*60*60*1000));
-	var expires = "expires="+ d.toUTCString();
+	let d = new Date();
+	d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+	let expires = "expires=" + d.toUTCString();
 	document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }
 function getCookie(cname) {
-	var name = cname + "=";
-	var decodedCookie = decodeURIComponent(document.cookie);
-	var ca = decodedCookie.split(';');
-	for(var i = 0; i <ca.length; i++) {
-		var c = ca[i];
+	let name = cname + "=";
+	let decodedCookie = decodeURIComponent(document.cookie);
+	let ca = decodedCookie.split(';');
+	for (let i = 0; i < ca.length; i++) {
+		let c = ca[i];
 		while (c.charAt(0) == ' ') {
 			c = c.substring(1);
 		}
@@ -50,7 +50,6 @@ translation['en_US'] = {
 	"您的评论已发送": "Your comment has been sent",
 	"评论": "Comments",
 	"未知原因": "Unknown Error",
-	"评论内容不能为空": "Comment content cannot be empty",
 	"编辑中": "Editing",
 	"正在编辑": "Editing",
 	"评论正在编辑中...": "Comment is being edited...",
@@ -85,6 +84,20 @@ translation['en_US'] = {
 	"复制": "Copy",
 	"全屏": "Fullscreen",
 	"退出全屏": "Exit Fullscreen",
+	"置顶评论": "Pin Comment",
+	"取消置顶评论": "Unpin Comment",
+	"是否要取消置顶评论 #": "Do you want to unpin the comment #",
+	"是否要置顶评论 #": "Do you want to pin the comment #",
+	"确认": "Confirm",
+	"取消": "取消",
+	"置顶": "Pin",
+	"取消置顶": "Unpin",
+	"置顶成功": "Pinned",
+	"取消置顶成功": "Unpinned",
+	"该评论已置顶": "The comment has been pinned",
+	"该评论已取消置顶": "The comment has been unpinned",
+	"置顶失败": "Failed to pin",
+	"取消置顶失败": "Failed to unpin",
 };
 translation['ru_RU'] = {
 	"确定": "ОК",
@@ -107,7 +120,6 @@ translation['ru_RU'] = {
 	"您的评论已发送": "Ваш комментарий был отправлен",
 	"评论": "Комментарии",
 	"未知原因": "Неизвестная ошибка",
-	"评论内容不能为空": "Содержимое комментария не может быть пустым",
 	"编辑中": "Редактируется",
 	"正在编辑": "Редактируется",
 	"评论正在编辑中...": "Комментарий редактируется",
@@ -164,7 +176,6 @@ translation['zh_TW'] = {
 	"您的评论已发送": "您的評論已發送",
 	"评论": "評論",
 	"未知原因": "未知原因",
-	"评论内容不能为空": "評論內容不能為空",
 	"编辑中": "編輯中",
 	"正在编辑": "正在編輯",
 	"评论正在编辑中...": "評論正在編輯中...",
@@ -288,6 +299,20 @@ function __(text){
 	document.addEventListener("scroll", changeToolbarTransparency, {passive: true});
 }();
 
+/*搜索*/
+function searchPosts(word){
+	if ($(".search-result").length > 0){
+		let url = new URL(window.location.href);
+		url.searchParams.set("s", word);
+		$.pjax({
+			url: url.href
+		});
+	}else{
+		$.pjax({
+			url: argonConfig.wp_path + "?s=" + encodeURI(word)
+		});
+	}
+}
 /*顶栏搜索*/
 $(document).on("click" , "#navbar_search_input_container" , function(){
 	$(this).addClass("open");
@@ -306,9 +331,7 @@ $(document).on("keydown" , "#navbar_search_input_container #navbar_search_input"
 		return;
 	}
 	let scrolltop = $(document).scrollTop();
-	$.pjax({
-		url: argonConfig.wp_path + "?s=" + encodeURI(word)
-	});
+	searchPosts(word);
 });
 /*顶栏搜索 (Mobile)*/
 $(document).on("keydown" , "#navbar_search_input_mobile" , function(e){
@@ -321,9 +344,7 @@ $(document).on("keydown" , "#navbar_search_input_mobile" , function(e){
 		return;
 	}
 	let scrolltop = $(document).scrollTop();
-	$.pjax({
-		url: argonConfig.wp_path + "?s=" + encodeURI(word)
-	});
+	searchPosts(word);
 });
 /*侧栏搜索*/
 $(document).on("click" , "#leftbar_search_container" , function(){
@@ -347,8 +368,28 @@ $(document).on("keydown" , "#leftbar_search_input" , function(e){
 		return;
 	}
 	$("html").removeClass("leftbar-opened");
+	searchPosts(word);
+});
+/*搜索过滤器*/
+$(document).on("change" , ".search-filter" , function(e){
+	if (pjaxLoading){
+		$(this).prop("checked", !$(this).prop("checked"));
+		e.preventDefault();
+		return;
+	}
+	pjaxLoading = true;
+	let postTypes = [];
+	$(".search-filter:checked").each(function(){
+		postTypes.push($(this).attr("name"));
+	});
+	if (postTypes.length == 0){
+		postTypes = ["none"];
+	}
+	let url = new URL(document.location.href);
+	url.searchParams.set("post_type", postTypes.join(","));
+	url.pathname = url.pathname.replace(/\/page\/\d+$/, '');
 	$.pjax({
-		url: argonConfig.wp_path + "?s=" + encodeURI(word)
+		url: url.href
 	});
 });
 
@@ -784,18 +825,105 @@ if (argonConfig.waterflow_columns != "1") {
 		$("#post_comment_content").trigger("change");
 		$('#post_comment').removeClass("editing");
 	}
-	$(document).on("click" , ".comment-edit" , function(){
+	$(document).on("click", ".comment-edit", function(){
 		edit(this.getAttribute("data-id"));
 	});
-	$(document).on("click" , "#post_comment_edit_cancel" , function(){
+	$(document).on("click", "#post_comment_edit_cancel", function(){
 		$("body,html").animate({
 			scrollTop: $("#comment-" + editID).offset().top - 100
 		}, 400, 'easeOutCirc');
 		cancelEdit(true);
 	});
-	$(document).on("pjax:click" , function(){
+	$(document).on("pjax:click", function(){
 		cancelEdit(true);
 	});
+	$(document).on("click", ".comment-pin, .comment-unpin", function(){
+		toogleCommentPin(this.getAttribute("data-id"), !this.classList.contains("comment-pin"));
+	});
+	$(document).on("mouseenter", ".comment-parent-info", function(){
+		$("#comment-" + this.getAttribute("data-parent-id")).addClass("highlight");
+	});
+	$(document).on("mouseleave", ".comment-parent-info", function(){
+		$("#comment-" + this.getAttribute("data-parent-id")).removeClass("highlight");
+	});
+	//切换评论置顶状态
+	function toogleCommentPin(commentID, pinned){
+		$("#comment_pin_comfirm_dialog .modal-title").html(pinned ? __("取消置顶评论") : __("置顶评论"));
+		$("#comment_pin_comfirm_dialog .modal-body").html(pinned ? __("是否要取消置顶评论 #") + commentID + "?" : __("是否要置顶评论 #") + commentID + "?");
+		$("#comment_pin_comfirm_dialog .btn-comfirm").html(__("确认")).attr("disabled", false);
+		$("#comment_pin_comfirm_dialog .btn-dismiss").html(__("取消")).attr("disabled", false);
+		$("#comment_pin_comfirm_dialog .btn-comfirm").off("click").on("click", function(){
+			$("#comment_pin_comfirm_dialog .btn-dismiss").attr("disabled", true)
+			$("#comment_pin_comfirm_dialog .btn-comfirm").attr("disabled", true).prepend(__(`<span class="btn-inner--icon" style="margin-right: 10px;"><i class="fa fa-spinner fa-spin"></i></span>`));
+			$.ajax({
+				type: 'POST',
+				url: argonConfig.wp_path + "wp-admin/admin-ajax.php",
+				dataType : "json",
+				data: {
+					action: "pin_comment",
+					id: commentID,
+					pinned: pinned ? "false" : "true"
+				},
+				success: function(result){
+					$("#comment_pin_comfirm_dialog").modal('hide');
+					if (result.status == "success"){
+						if (pinned){
+							$("#comment-" + commentID + " .comment-name .badge-pinned").remove();
+							$("#comment-" + commentID + " .comment-unpin").removeClass("comment-unpin").addClass("comment-pin").html(__("置顶"));
+						}else{
+							$("#comment-" + commentID + " .comment-name").append(`<span class="badge badge-danger badge-pinned">${__("置顶")}</span>`);
+							$("#comment-" + commentID + " .comment-pin").removeClass("comment-pin").addClass("comment-unpin").html(__("取消置顶"));
+						}
+						iziToast.show({
+							title: pinned ? __("取消置顶成功") : __("置顶成功"),
+							message: pinned ? __("该评论已取消置顶") : __("该评论已置顶"),
+							class: 'shadow-sm',
+							position: 'topRight',
+							backgroundColor: '#2dce89',
+							titleColor: '#ffffff',
+							messageColor: '#ffffff',
+							iconColor: '#ffffff',
+							progressBarColor: '#ffffff',
+							icon: 'fa fa-check',
+							timeout: 5000
+						});
+					} else {
+						iziToast.show({
+							title: pinned ? __("取消置顶失败") : __("置顶失败"),
+							message: result.msg,
+							class: 'shadow-sm',
+							position: 'topRight',
+							backgroundColor: '#f5365c',
+							titleColor: '#ffffff',
+							messageColor: '#ffffff',
+							iconColor: '#ffffff',
+							progressBarColor: '#ffffff',
+							icon: 'fa fa-close',
+							timeout: 5000
+						});
+					}
+				},
+				error: function(result){
+					$("#comment_pin_comfirm_dialog").modal('hide');
+					iziToast.show({
+						title: pinned ? __("取消置顶失败") : __("置顶失败"),
+						message: __("未知错误"),
+						class: 'shadow-sm',
+						position: 'topRight',
+						backgroundColor: '#f5365c',
+						titleColor: '#ffffff',
+						messageColor: '#ffffff',
+						iconColor: '#ffffff',
+						progressBarColor: '#ffffff',
+						icon: 'fa fa-close',
+						timeout: 5000
+					});
+				}
+			});
+		});
+		$("#comment_pin_comfirm_dialog").modal(null);
+	}
+		
 
 	//显示/隐藏额外输入框 (评论者网站)
 	$(document).on("click" , "#post_comment_toggle_extra_input" , function(){
@@ -827,32 +955,29 @@ if (argonConfig.waterflow_columns != "1") {
 
 	//发送评论
 	function postComment(){
-		commentContent = $("#post_comment_content").val();
-		commentName = $("#post_comment_name").val();
-		commentEmail = $("#post_comment_email").val();
-		commentLink = $("#post_comment_link").val();
-		commentCaptcha = $("#post_comment_captcha").val();
+		let commentContent = $("#post_comment_content").val();
+		let commentName = $("#post_comment_name").val();
+		let commentEmail = $("#post_comment_email").val();
+		let commentLink = $("#post_comment_link").val();
+		let commentCaptcha = $("#post_comment_captcha").val();
+		let useMarkdown = false;
+		let privateMode = false;
+		let mailNotice = false;
 		if ($("#comment_post_use_markdown").length > 0){
 			useMarkdown = $("#comment_post_use_markdown")[0].checked;
-		}else{
-			useMarkdown = false;
 		}
 		if ($("#comment_post_privatemode").length > 0){
 			privateMode = $("#comment_post_privatemode")[0].checked;
-		}else{
-			privateMode = false;
 		}
 		if ($("#comment_post_mailnotice").length > 0){
 			mailNotice = $("#comment_post_mailnotice")[0].checked;
-		}else{
-			mailNotice = false;
 		}
 
-		postID = $("#post_comment_post_id").val();
-		commentCaptchaSeed = $("#post_comment_captcha_seed").val();
+		let postID = $("#post_comment_post_id").val();
+		let commentCaptchaSeed = $("#post_comment_captcha_seed").val();
 
-		isError = false;
-		errorMsg = "";
+		let isError = false;
+		let errorMsg = "";
 
 		//检查表单合法性
 		if (commentContent.match(/^\s*$/)){
@@ -876,18 +1001,16 @@ if (argonConfig.waterflow_columns != "1") {
 				}
 			}
 		}else{
-			if (document.getElementById("comment_post_mailnotice") != null){
-				if (document.getElementById("comment_post_mailnotice").checked == true){
-					if ($("#post_comment").hasClass("enable-qq-avatar")){
-						if (!(/^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/).test(commentEmail) && !(/^[1-9][0-9]{4,10}$/).test(commentEmail)){
-							isError = true;
-							errorMsg += __("邮箱或 QQ 号格式错误") + "</br>";
-						}
-					}else{
-						if (!(/^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/).test(commentEmail)){
-							isError = true;
-							errorMsg += __("邮箱格式错误") + "</br>";
-						}
+			if (commentEmail.length || (document.getElementById("comment_post_mailnotice") != null && document.getElementById("comment_post_mailnotice").checked == true)){
+				if ($("#post_comment").hasClass("enable-qq-avatar")){
+					if (!(/^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/).test(commentEmail) && !(/^[1-9][0-9]{4,10}$/).test(commentEmail)){
+						isError = true;
+						errorMsg += __("邮箱或 QQ 号格式错误") + "</br>";
+					}
+				}else{
+					if (!(/^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/).test(commentEmail)){
+						isError = true;
+						errorMsg += __("邮箱格式错误") + "</br>";
 					}
 				}
 			}
@@ -1087,9 +1210,9 @@ if (argonConfig.waterflow_columns != "1") {
 	}
 	//编辑评论
 	function editComment(){
-		commentContent = $("#post_comment_content").val();
-		isError = false;
-		errorMsg = "";
+		let commentContent = $("#post_comment_content").val();
+		let isError = false;
+		let errorMsg = "";
 		if (commentContent.match(/^\s*$/)){
 			isError = true;
 			errorMsg += __("评论内容不能为空") + "</br>";
@@ -1390,7 +1513,7 @@ function foldLongComments(){
 		}
 		if (this.clientHeight > 800){
 			$(this).addClass("comment-folded");
-			$(this).append("<div class='show-full-comment'><i class='fa fa-angle-down'></i> " + __("展开") + "</div>");
+			$(this).append("<div class='show-full-comment'><button><i class='fa fa-angle-down' aria-hidden='true'></i> " + __("展开") + "</button></div>");
 		}
 	});
 }
@@ -1406,7 +1529,7 @@ function generateCommentTextAvatar(img){
 	}catch{
 		emailHash = img.parent().parent().parent().find(".comment-name").text().trim();
 		if (emailHash == '' || emailHash == undefined){
-			emailHash = img.parent().find("*['class'*='comment-author']").text().trim();
+			emailHash = img.parent().find("*[class*='comment-author']").text().trim();
 		}
 	}
 	let hash = 0;
@@ -1535,8 +1658,7 @@ function getHash(url){
 }
 !function(){
 	$(window).on("hashchange" , function(){
-		hash = window.location.hash;
-		gotoHash(hash);
+		gotoHash(window.location.hash);
 	});
 	$(window).trigger("hashchange");
 }();
@@ -1613,7 +1735,7 @@ function lazyloadInit(){
 	if (argonConfig.lazyload.effect == "none"){
 		delete argonConfig.lazyload.effect;
 	}
-	$("article img.lazyload:not(.lazyload-loaded) , .related-post-thumbnail.lazyload:not(.lazyload-loaded)").lazyload(
+	$("article img.lazyload:not(.lazyload-loaded) , .related-post-thumbnail.lazyload:not(.lazyload-loaded) , .shuoshuo-preview-container img.lazyload:not(.lazyload-loaded)").lazyload(
 		Object.assign(argonConfig.lazyload, {
 			load: function () {
 				$(this).addClass("lazyload-loaded");
@@ -1637,13 +1759,13 @@ lazyloadInit();
 /*Pangu.js*/
 function panguInit(){
 	if (argonConfig.pangu.indexOf("article") >= 0){
-		pangu.spacingElementById('post_content');
+		pangu.spacingElementByClassName('post-content');
 	}
 	if (argonConfig.pangu.indexOf("comment") >= 0){
 		pangu.spacingElementById('comments');
 	}
 	if (argonConfig.pangu.indexOf("shuoshuo") >= 0){
-		pangu.spacingElementByClassName('shuoshuo-container');
+		pangu.spacingElementByClassName('shuoshuo-content');
 	}
 }
 panguInit();
@@ -1720,10 +1842,10 @@ if ($("html").hasClass("banner-as-cover")){
 }
 
 /*Pjax*/
-var pjaxScrollTop = 0;
+var pjaxScrollTop = 0, pjaxLoading = false;
 $.pjax.defaults.timeout = 10000;
-$.pjax.defaults.container = ['#primary', '#leftbar_part1_menu', '#leftbar_part2_inner', '.page-information-card-container', '#wpadminbar'];
-$.pjax.defaults.fragment = ['#primary', '#leftbar_part1_menu', '#leftbar_part2_inner', '.page-information-card-container', '#wpadminbar'];
+$.pjax.defaults.container = ['#primary', '#leftbar_part1_menu', '#leftbar_part2_inner', '.page-information-card-container', '#rightbar', '#wpadminbar'];
+$.pjax.defaults.fragment = ['#primary', '#leftbar_part1_menu', '#leftbar_part2_inner', '.page-information-card-container', '#rightbar', '#wpadminbar'];
 $(document).pjax("a[href]:not([no-pjax]):not(.no-pjax):not([target='_blank']):not([download]):not(.reference-link):not(.reference-list-backlink)")
 .on('pjax:click', function(e, f, g){
 	if (argonConfig.disable_pjax == true){
@@ -1732,6 +1854,7 @@ $(document).pjax("a[href]:not([no-pjax]):not(.no-pjax):not([target='_blank']):no
 	}
 	NProgress.remove();
 	NProgress.start();
+	pjaxLoading = true;
 }).on('pjax:afterGetContainers', function(e, f, g) {
 	if (g.is("#main article.post-preview a.post-title")){
 		let $card = $(g.parents("article.post-preview")[0]);
@@ -1776,6 +1899,7 @@ $(document).pjax("a[href]:not([no-pjax]):not(.no-pjax):not([target='_blank']):no
 		}
 	}
 }).on('pjax:complete', function() {
+	pjaxLoading = false;
 	NProgress.inc();
 	try{
 		if (MathJax != undefined){
@@ -1809,6 +1933,8 @@ $(document).pjax("a[href]:not([no-pjax]):not(.no-pjax):not([target='_blank']):no
 	showPostOutdateToast();
 	calcHumanTimesOnPage();
 	foldLongComments();
+	foldLongShuoshuo();
+	$("html").trigger("resize");
 
 	if (typeof(window.pjaxLoaded) == "function"){
 		try{
@@ -1986,6 +2112,25 @@ $(document).on("click" , ".shuoshuo-upvote" , function(){
 		}
 	});
 });
+//折叠长说说
+function foldLongShuoshuo(){
+	if (argonConfig.fold_long_shuoshuo == false){
+		return;
+	}
+	$("#main .shuoshuo-foldable > .shuoshuo-content").each(function(){
+		if ($(this).hasClass("shuoshuo-unfolded")){
+			return;
+		}
+		if (this.clientHeight > 400){
+			$(this).addClass("shuoshuo-folded");
+			$(this).append("<div class='show-full-shuoshuo'><button class='btn btn-outline-primary'><i class='fa fa-angle-down' aria-hidden='true'></i> " + __("展开") + "</button></div>");
+		}
+	});
+}
+foldLongShuoshuo();
+$(document).on("click" , ".show-full-shuoshuo" , function(){
+	$(this).parent().removeClass("shuoshuo-folded").addClass("shuoshuo-unfolded");
+});
 
 //颜色计算
 function rgb2hsl(R,G,B){
@@ -2028,7 +2173,10 @@ function rgb2hsl(R,G,B){
 	return {
 		'h': H,//0~1
 		's': S,
-		'l': L
+		'l': L,
+		'H': Math.round(H * 360),//0~360
+		'S': Math.round(S * 100),//0~100
+		'L': Math.round(L * 100),//0~100
 	};
 }
 function Hue_2_RGB(v1,v2,vH){
@@ -2183,28 +2331,14 @@ function updateThemeColor(color, setcookie){
 	let RGB = hex2rgb(themecolor);
 	let HSL = rgb2hsl(RGB['R'], RGB['G'], RGB['B']);
 
-	let RGB_dark0 = hsl2rgb(HSL['h'], HSL['s'], Math.max(HSL['l'] - 0.025, 0));
-	let themecolor_dark0 = rgb2hex(RGB_dark0['R'],RGB_dark0['G'],RGB_dark0['B']);
-
-	let RGB_dark = hsl2rgb(HSL['h'], HSL['s'], Math.max(HSL['l'] - 0.05, 0));
-	let themecolor_dark = rgb2hex(RGB_dark['R'], RGB_dark['G'], RGB_dark['B']);
-
-	let RGB_dark2 = hsl2rgb(HSL['h'], HSL['s'], Math.max(HSL['l'] - 0.1, 0));
-	let themecolor_dark2 = rgb2hex(RGB_dark2['R'],RGB_dark2['G'],RGB_dark2['B']);
-
-	let RGB_dark3 = hsl2rgb(HSL['h'], HSL['s'], Math.max(HSL['l'] - 0.15, 0));
-	let themecolor_dark3 = rgb2hex(RGB_dark3['R'],RGB_dark3['G'],RGB_dark3['B']);
-
-	let RGB_light = hsl2rgb(HSL['h'], HSL['s'], Math.min(HSL['l'] + 0.1, 1));
-	let themecolor_light = rgb2hex(RGB_light['R'],RGB_light['G'],RGB_light['B']);
-
 	document.documentElement.style.setProperty('--themecolor', themecolor);
-	document.documentElement.style.setProperty('--themecolor-dark0', themecolor_dark0);
-	document.documentElement.style.setProperty('--themecolor-dark', themecolor_dark);
-	document.documentElement.style.setProperty('--themecolor-dark2', themecolor_dark2);
-	document.documentElement.style.setProperty('--themecolor-dark3', themecolor_dark3);
-	document.documentElement.style.setProperty('--themecolor-light', themecolor_light);
-	document.documentElement.style.setProperty('--themecolor-rgbstr', themecolor_rgbstr);
+	document.documentElement.style.setProperty('--themecolor-R', RGB['R']);
+	document.documentElement.style.setProperty('--themecolor-G', RGB['G']);
+	document.documentElement.style.setProperty('--themecolor-B', RGB['B']);
+	document.documentElement.style.setProperty('--themecolor-H', HSL['H']);
+	document.documentElement.style.setProperty('--themecolor-S', HSL['S']);
+	document.documentElement.style.setProperty('--themecolor-L', HSL['L']);
+
 
 	if (rgb2gray(RGB['R'], RGB['G'], RGB['B']) < 50){
 		$("html").addClass("themecolor-toodark");
@@ -2319,9 +2453,12 @@ function highlightJsRender(){
 		if (argonConfig.code_highlight.break_line){
 			$(block).parent().addClass("hljs-break-line");
 		}
+		if (argonConfig.code_highlight.transparent_linenumber){
+			$(block).parent().addClass("hljs-transparent-linenumber");
+		}
 		$(block).attr("hljs-codeblock-inner", "");
 		let copyBtnID = "copy_btn_" + randomString();
-		$(block).parent().append(`<div class="hljs-control hljs-title">
+		$(block).parent().append(`<div class="hljs-control hljs hljs-title">
 				<div class="hljs-control-btn hljs-control-toggle-linenumber" tooltip-hide-linenumber="` + __("隐藏行号") + `" tooltip-show-linenumber="` + __("显示行号") + `">
 					<i class="fa fa-list"></i>
 				</div>
