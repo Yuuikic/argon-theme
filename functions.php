@@ -13,7 +13,7 @@ $GLOBALS['theme_version'] = wp_get_theme() -> Version;
 $argon_assets_path = get_option("argon_assets_path");
 switch ($argon_assets_path) {
     case "jsdelivr":
-	    $GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/solstice23/argon-theme@" . wp_get_theme() -> Version;
+	    $GLOBALS['assets_path'] = "https://cdn.jsdelivr.net/gh/yuuikic/argon-theme@" . wp_get_theme() -> Version;
         break;
     case "fastgit":
 	    $GLOBALS['assets_path'] = "https://raw.fastgit.org/solstice23/argon-theme/v" . wp_get_theme() -> Version;
